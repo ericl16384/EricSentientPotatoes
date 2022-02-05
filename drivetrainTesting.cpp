@@ -134,24 +134,12 @@ int main() {
     // lift.goal = 1;
 
     while(true) {
-        if(Controller1.ButtonR1.pressing()) {
-            lift.goal += 0.01;
-        }
-        if(Controller1.ButtonR2.pressing()) {
-            lift.goal -= 0.01;
-        }
-        if(Controller1.ButtonB.pressing()) {
-            lift.goal = 0;
-        }
-        if(Controller1.ButtonA.pressing()) {
-            lift.goal = 0.5;
-        }
-        if(Controller1.ButtonY.pressing()) {
-            lift.goal = 1;
-        }
-        if(Controller1.ButtonX.pressing()) {
-            lift.goal = 1.5;
-        }
+        if(Controller1.ButtonR1.pressing()) {lift.goal += 0.01;}
+        if(Controller1.ButtonR2.pressing()) {lift.goal -= 0.01;}
+        if(Controller1.ButtonB.pressing()) {lift.goal = 0;}
+        if(Controller1.ButtonA.pressing()) {lift.goal = 0.5;}
+        if(Controller1.ButtonY.pressing()) {lift.goal = 1;}
+        if(Controller1.ButtonX.pressing()) {lift.goal = 1.5;}
 
         // Note: this is not good, responsive user drive code
         // this is just a way to test auton movement, via the controller
@@ -159,6 +147,10 @@ int main() {
         // user control should link the axis to the voltage applied
         leftWheels.goal += Controller1.Axis3.position() / 100;
         rightWheels.goal += Controller1.Axis2.position() / 100;
+        if(Controller1.ButtonUp) {leftWheels.goal += 1; rightWheels.goal += 1;}
+        if(Controller1.ButtonDown) {leftWheels.goal -= 1; rightWheels.goal -= 1;}
+        if(Controller1.ButtonLeft) {leftWheels.goal -= 1; rightWheels.goal += 1;}
+        if(Controller1.ButtonRight) {leftWheels.goal += 1; rightWheels.goal -= 1;}
 
         lift.update();
 
