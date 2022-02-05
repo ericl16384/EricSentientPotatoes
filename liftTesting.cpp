@@ -31,6 +31,12 @@ motor LeftMotor = motor(PORT11, ratio18_1, false);
 
 motor RightMotor = motor(PORT20, ratio18_1, true);
 
+controller Controller1 = controller(primary);
+
+// define variable for remote controller enable/disable
+bool RemoteControlCodeEnabled = true;
+
+
 
 
 #pragma endregion VEXcode Generated Robot Configuration
@@ -60,8 +66,8 @@ float constrain(float x, float min, float max) {
 }
 
 
-float moveMotorTo(motor m, float turnGoal, float forceScale, float maxVolts=12) {
-    float delta = turnGoal - m.position(turns);
+float moveMotorTo(motor m, float goal, float forceScale, float maxVolts=12) {
+    float delta = goal - m.position(turns);
     float volts = constrain(delta * forceScale, -maxVolts, maxVolts);
 
     m.spin(forward, volts, volt);
@@ -72,16 +78,16 @@ class MotorController {
     public:
         motor m;
 
-        float turnGoal;
+        float goal;
         float forceScale = 20;
         float maxVolts = 12;
 
         MotorController(motor m): m(m) {
-            this->turnGoal = this->m.position(turns);
+            this->goal = this->m.position(turns);
         }
 
         void update() {
-            moveMotorTo(this->m, this->turnGoal, this->forceScale, this->maxVolts);
+            moveMotorTo(this->m, this->goal, this->forceScale, this->maxVolts);
         }
 };
 
@@ -90,17 +96,17 @@ class PairedMotorController {
         motor m1;
         motor m2;
 
-        float turnGoal;
+        float goal;
         float forceScale = 20;
         float maxVolts = 12;
 
         PairedMotorController(motor m1, motor m2): m1(m1), m2(m2) {
-            this->turnGoal = (m1.position(turns) + m2.position(turns)) / 2;
+            this->goal = (m1.position(turns) + m2.position(turns)) / 2;
         }
 
         void update() {
-            moveMotorTo(this->m1, this->turnGoal, this->forceScale, this->maxVolts);
-            moveMotorTo(this->m2, this->turnGoal, this->forceScale, this->maxVolts);
+            moveMotorTo(this->m1, this->goal, this->forceScale, this->maxVolts);
+            moveMotorTo(this->m2, this->goal, this->forceScale, this->maxVolts);
         }
 };
 
@@ -111,9 +117,29 @@ int main() {
 
     PairedMotorController lift(LeftMotor, RightMotor);
 
-    lift.turnGoal = 1;
+    lift.goal = 1;
 
     while(true) {
+        if(Controller1.ButtonR1) {
+            lift.goal += 0.01;
+        }
+        if(Controller1.ButtonR2) {
+            lift.goal -= 0.01;
+        }
+        
+        if(Controller1.ButtonB) {
+            lift.goal = 0;
+        }
+        if(Controller1.ButtonA) {
+            lift.goal = 0.5;
+        }
+        if(Controller1.ButtonY) {
+            lift.goal = 1;
+        }
+        if(Controller1.ButtonX) {
+            lift.goal = 1.5;
+        }
+
         lift.update();
 
         wait(5, msec);
