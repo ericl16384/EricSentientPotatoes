@@ -82,40 +82,38 @@ float moveMotorTo(motor m, float goal, float forceScale, float maxVolts=12) {
     return volts;
 }
 
-class MotorController {
-    public:
-        motor m;
+struct MotorController {
+    motor m;
 
-        float goal;
-        float forceScale = 20;
-        float maxVolts = 12;
+    float goal;
+    float forceScale = 20;
+    float maxVolts = 12;
 
-        MotorController(motor m): m(m) {
-            this->goal = this->m.position(turns);
-        }
+    MotorController(motor m): m(m) {
+        this->goal = this->m.position(turns);
+    }
 
-        void update() {
-            moveMotorTo(this->m, this->goal, this->forceScale, this->maxVolts);
-        }
+    void update() {
+        moveMotorTo(this->m, this->goal, this->forceScale, this->maxVolts);
+    }
 };
 
-class PairedMotorController {
-    public:
-        motor m1;
-        motor m2;
+struct PairedMotorController {
+    motor m1;
+    motor m2;
 
-        float goal;
-        float forceScale = 20;
-        float maxVolts = 12;
+    float goal;
+    float forceScale = 20;
+    float maxVolts = 12;
 
-        PairedMotorController(motor m1, motor m2): m1(m1), m2(m2) {
-            this->goal = (m1.position(turns) + m2.position(turns)) / 2;
-        }
+    PairedMotorController(motor m1, motor m2): m1(m1), m2(m2) {
+        this->goal = (m1.position(turns) + m2.position(turns)) / 2;
+    }
 
-        void update() {
-            moveMotorTo(this->m1, this->goal, this->forceScale, this->maxVolts);
-            moveMotorTo(this->m2, this->goal, this->forceScale, this->maxVolts);
-        }
+    void update() {
+        moveMotorTo(this->m1, this->goal, this->forceScale, this->maxVolts);
+        moveMotorTo(this->m2, this->goal, this->forceScale, this->maxVolts);
+    }
 };
 
 
