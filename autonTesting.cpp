@@ -73,6 +73,20 @@ float constrain(float x, float min, float max) {
     }
 }
 
+bool within(float x, float min, float max) {
+    if(x < min) {
+        return false;
+    } else if(x > max) {
+        return false;
+    } else {
+        return true;
+    }
+}
+
+bool threshold(float x, float goal, float tolerance) {
+    return within(x, goal - tolerance, goal + tolerance);
+}
+
 
 float moveMotorTo(motor m, float goal, float forceScale, float maxVolts=12) {
     float delta = goal - m.position(turns);
@@ -96,6 +110,14 @@ struct MotorController {
     void update() {
         moveMotorTo(this->m, this->goal, this->forceScale, this->maxVolts);
     }
+
+    bool inThreshold(float tolerance) {
+        if(!threshold(this->m.position(turns), this->goal, tolerance)) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 };
 
 struct PairedMotorController {
@@ -114,6 +136,16 @@ struct PairedMotorController {
         moveMotorTo(this->m1, this->goal, this->forceScale, this->maxVolts);
         moveMotorTo(this->m2, this->goal, this->forceScale, this->maxVolts);
     }
+
+    bool inThreshold(float tolerance) {
+        if(!threshold(this->m1.position(turns), this->goal, tolerance)) {
+            return false;
+        } else if(!threshold(this->m2.position(turns), this->goal, tolerance)) {
+            return false;
+        } else {
+            return true;
+        }
+    }
 };
 
 
@@ -122,11 +154,141 @@ PairedMotorController leftWheels(LeftRearMotor, LeftFrontMotor);
 PairedMotorController rightWheels(RightRearMotor, RightFrontMotor);
 
 
+struct AutonomousAction {
+    float liftGoal=0, leftGoal=0, rightGoal=0;
+    bool liftRelative=false, leftRelative=true, rightRelative=true;
+
+    float minTime=4;
+    // float tolerance = 0.01;
+    float tolerance = 0;
+
+    // AutonomousAction(
+    //     float liftGoal, float leftGoal, float rightGoal,
+    //     bool liftRelative=true, bool leftRelative=true,  bool rightRelative=true,
+    //     float minTime=0
+    // )
+    // AutonomousAction() {}
+    // AutonomousAction(AutonomousAction previous) {
+    //     this->liftGoal = previous.liftGoal;
+    //     this->leftGoal = previous.leftGoal;
+    //     this->rightGoal = previous.rightGoal;
+
+    //     this->liftRelative = previous.liftRelative;
+    //     this->leftRelative = previous.leftRelative;
+    //     this->rightRelative = previous.rightRelative;
+
+    //     this->minTime = previous.minTime;
+    // } 
+
+    void apply() {
+        if(this->liftRelative) {
+            liftArms.goal += this->liftGoal;
+        } else {
+            liftArms.goal = this->liftGoal;
+        }
+
+        if(this->leftRelative) {
+            leftWheels.goal += this->leftGoal;
+        } else {
+            leftWheels.goal = this->leftGoal;
+        }
+
+        if(this->rightRelative) {
+            rightWheels.goal += this->rightGoal;
+        } else {
+            rightWheels.goal = this->rightGoal;
+        }
+    }
+
+    bool done() {
+        if(!liftArms.inThreshold(this->tolerance)) {
+            return false;
+        } else if(!leftWheels.inThreshold(this->tolerance)) {
+            return false;
+        } else if(!rightWheels.inThreshold(this->tolerance)) {
+            return false;
+        } else {
+            return true;
+        }
+    }
+};
+
+struct Autonomous {
+    AutonomousAction actions[1024];
+    int actionsLength = 0;
+
+    int currentAction = -1;
+    float actionStart = 0;
+    float actionEnd = 0;
+
+    void addAction(AutonomousAction action) {
+        this->actions[this->actionsLength] = action;
+        this->actionsLength++;
+    }
+
+    void startNextAction() {
+        if(this->currentAction < this->actionsLength) {
+            this->currentAction++;
+            this->actionStart = Brain.Timer.time(seconds);   
+            this->actionEnd = this->actionStart + this->actions[this->currentAction].minTime;
+            this->actions[this->currentAction].apply();
+        }
+    }
+
+    void update() {
+        if(Brain.Timer.time(seconds) >= this->actionEnd || this->actions[this->currentAction].done()) {
+            this->startNextAction();
+        }
+    }
+
+
+    void addMove(float dist) {
+        AutonomousAction action;
+        action.leftGoal = dist;
+        action.rightGoal = dist;
+        this->addAction(action);
+    }
+
+    // replace amt with theta, when I figure out the relationship
+    // between the amt and theta
+    void addTurn(float amt) {
+        AutonomousAction action;
+        action.leftGoal = -amt;
+        action.rightGoal = amt;
+        this->addAction(action);
+    }
+
+    void addLift(float goal) {
+        AutonomousAction action;
+        action.liftGoal = goal;
+        this->addAction(action);
+    }
+};
+
+
 int main() {
-    bool driveMode = false;
+    Autonomous auton;
+
+    auton.addMove(3);
+    auton.addLift(0.25);
+    auton.addMove(-3);
+    auton.addTurn(-0.5);
+    auton.addLift(0);
+    auton.addTurn(0.5);
+    auton.addMove(1.5);
+    auton.addTurn(0.125);
+    auton.addMove(2);
+    // not yet tested in any way
+    auton.addLift(0.5);
+    auton.addMove(-2);
+    auton.addTurn(-0.125);
+    auton.addMove(-1.5);
+
+
+    // replace with Competition callbacks
+    bool driveMode = true;
 
     while(true) {
-        // replace with Competition
         if(Controller1.ButtonL1.pressing()) {driveMode = false;}
         if(Controller1.ButtonL2.pressing()) {driveMode = true;}
 
@@ -156,6 +318,8 @@ int main() {
             LeftRearMotor.spin(forward, l, volt);
             RightFrontMotor.spin(forward, r, volt);
             RightRearMotor.spin(forward, r, volt);
+        } else {
+            auton.update();
         }
 
 
