@@ -27,18 +27,18 @@ brain Brain;
 
 
 // Robot configuration code.
-motor LeftLiftMotor = motor(PORT11, ratio18_1, true);
+motor LeftLiftMotor = motor(PORT2, ratio18_1, false);
 
-motor RightLiftMotor = motor(PORT20, ratio18_1, false);
+motor RightLiftMotor = motor(PORT9, ratio18_1, true);
 
 controller Controller1 = controller(primary);
-motor LeftRearMotor = motor(PORT10, ratio36_1, true);
+motor LeftRearMotor = motor(PORT3, ratio36_1, true);
 
-motor RightRearMotor = motor(PORT1, ratio36_1, false);
+motor RightRearMotor = motor(PORT8, ratio36_1, false);
 
-motor LeftFrontMotor = motor(PORT9, ratio36_1, true);
+motor LeftFrontMotor = motor(PORT1, ratio36_1, true);
 
-motor RightFrontMotor = motor(PORT2, ratio36_1, false);
+motor RightFrontMotor = motor(PORT10, ratio36_1, false);
 
 
 // define variable for remote controller enable/disable
@@ -156,11 +156,10 @@ PairedMotorController rightWheels(RightRearMotor, RightFrontMotor);
 
 struct AutonomousAction {
     float liftGoal=0, leftGoal=0, rightGoal=0;
-    bool liftRelative=false, leftRelative=true, rightRelative=true;
+    bool liftRelative=true, leftRelative=true, rightRelative=true;
 
-    float minTime=4;
-    // float tolerance = 0.01;
-    float tolerance = 0;
+    float tolerance = 0.05;
+    float waiting = 0.5;
 
     // AutonomousAction(
     //     float liftGoal, float leftGoal, float rightGoal,
@@ -219,7 +218,7 @@ struct Autonomous {
 
     int currentAction = -1;
     float actionStart = 0;
-    float actionEnd = 0;
+    // float actionEnd = -1;
 
     void addAction(AutonomousAction action) {
         this->actions[this->actionsLength] = action;
@@ -227,18 +226,32 @@ struct Autonomous {
     }
 
     void startNextAction() {
-        if(this->currentAction < this->actionsLength) {
+        if(!this->finished()) {
             this->currentAction++;
             this->actionStart = Brain.Timer.time(seconds);   
-            this->actionEnd = this->actionStart + this->actions[this->currentAction].minTime;
+            // this->actionEnd = this->actionStart + this->actions[this->currentAction].minTime;
+            // this->actionEnd = -1;
             this->actions[this->currentAction].apply();
         }
     }
 
     void update() {
-        if(Brain.Timer.time(seconds) >= this->actionEnd || this->actions[this->currentAction].done()) {
+        // if(this->actions[this->currentAction].done() && this->actionEnd == -1) {
+        //     this->actionEnd = Brain.Timer.time(seconds) + this->actions[this->currentAction].waiting;
+        // } else if(Brain.Timer.time(seconds) >= this->actionEnd && this->actionEnd != -1) {
+        //     this->startNextAction();
+        // }
+
+        if(this->currentAction == -1 || this->actions[this->currentAction].done()) {
             this->startNextAction();
         }
+
+        Brain.Screen.clearScreen();
+        Brain.Screen.print(this->currentAction);
+    }
+
+    bool finished() {
+        return this->currentAction >= this->actionsLength;
     }
 
 
@@ -261,39 +274,78 @@ struct Autonomous {
     void addLift(float goal) {
         AutonomousAction action;
         action.liftGoal = goal;
+        action.liftRelative = false;
         this->addAction(action);
     }
 };
 
 
+void enableAuton() {
+    RemoteControlCodeEnabled = false;
+    leftWheels.maxVolts = 6;
+    rightWheels.maxVolts = 6;
+}
+void enableDrive() {
+    RemoteControlCodeEnabled = true;
+    leftWheels.maxVolts = 12;
+    rightWheels.maxVolts = 12;
+}
+
 int main() {
+    competition comp;
+    comp.autonomous(enableAuton);
+    comp.drivercontrol(enableDrive);
+
+
     Autonomous auton;
 
+    // first goal
     auton.addMove(3);
     auton.addLift(0.25);
     auton.addMove(-3);
     auton.addTurn(-0.5);
     auton.addLift(0);
     auton.addTurn(0.5);
-    auton.addMove(1.5);
-    auton.addTurn(0.125);
-    auton.addMove(2);
-    // not yet tested in any way
-    auton.addLift(0.5);
-    auton.addMove(-2);
-    auton.addTurn(-0.125);
-    auton.addMove(-1.5);
 
+    // second goal
+    // auton.addMove(1.5);
+    // auton.addTurn(0.125);
+    // auton.addMove(2);
+    // auton.addLift(0.25);
+    // auton.addMove(-2);
+    // auton.addTurn(-0.125);
+    // auton.addMove(-1.5);
+    // auton.addLift(0);
+
+    // Brain.Screen.print(sizeof(auton.actions));
+    // Brain.Screen.newLine();
+    // Brain.Screen.print(sizeof(auton.actions[0]));
+    // Brain.Screen.newLine();
+    // Brain.Screen.print(auton.actionsLength);
+    // Brain.Screen.newLine();
 
     // replace with Competition callbacks
-    bool driveMode = true;
+    // bool driveMode = false;
+    // RemoteControlCodeEnabled = true;
+
+    // leftWheels.maxVolts = 6;
+    // rightWheels.maxVolts = 6;
+    leftWheels.forceScale = 500;
+    rightWheels.forceScale = 500;
 
     while(true) {
-        if(Controller1.ButtonL1.pressing()) {driveMode = false;}
-        if(Controller1.ButtonL2.pressing()) {driveMode = true;}
+        // if(Controller1.ButtonL1.pressing()) {driveMode = false;}
+        // if(Controller1.ButtonL2.pressing()) {driveMode = true;}
 
 
-        if(driveMode) {
+        // DEBUG!!!
+        if(Controller1.ButtonL1.pressing() && Controller1.ButtonL2.pressing()) {
+            enableAuton();
+        }
+
+
+        // if(driveMode) {
+        if(RemoteControlCodeEnabled) {
             if(Controller1.ButtonR1.pressing()) {liftArms.goal += 0.01;}
             if(Controller1.ButtonR2.pressing()) {liftArms.goal -= 0.01;}
             if(Controller1.ButtonX.pressing()) {liftArms.goal = 1.5;}
@@ -324,9 +376,15 @@ int main() {
 
 
         liftArms.update();
-        if(!driveMode) {
+        // if(!driveMode) {
+        if(!RemoteControlCodeEnabled) {
             leftWheels.update();
             rightWheels.update();
+
+            // Debug?
+            if(auton.finished()) {
+                enableDrive();
+            }
         }
 
         wait(5, msec);
